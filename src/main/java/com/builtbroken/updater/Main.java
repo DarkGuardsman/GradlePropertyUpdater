@@ -12,6 +12,7 @@ import java.util.List;
 public class Main
 {
     public static int maxSearchDepth = 10;
+    public static List<String> foldersToIgnore = new ArrayList();
 
     public static void main(String... args)
     {
@@ -20,18 +21,29 @@ public class Main
         HashMap<String, String> launchSettings = loadArgs(args);
         if (launchSettings.containsKey("foldersToSearch"))
         {
-            String[] folderPaths = launchSettings.get("foldersToSearch").split(",");
-            log("Args: " + folderPaths.length + " folders to search");
-
             if (launchSettings.containsKey("lineToReplace"))
             {
                 if (launchSettings.containsKey("lineToInsert"))
                 {
                     if (launchSettings.containsKey("fileToEdit"))
                     {
+                        String[] folderPaths = launchSettings.get("foldersToSearch").split(",");
                         String lineToReplace = launchSettings.get("lineToReplace");
                         String lineToInsert = launchSettings.get("lineToInsert");
                         String fileToEdit = launchSettings.get("fileToEdit");
+
+                        log("-----------------------------------");
+                        log("Args: ");
+                        log("\tFolders: " + folderPaths.length);
+                        log("\tFile: " + fileToEdit);
+                        log("\tReplace: " + lineToReplace);
+                        log("\tInsert: " + lineToInsert);
+                        log("-----------------------------------");
+
+                        //TODO add args to add more folders to list
+                        foldersToIgnore.add("build");
+                        foldersToIgnore.add(".git");
+                        foldersToIgnore.add(".gradle");
 
                         List<File> files = new ArrayList();
 
@@ -42,7 +54,15 @@ public class Main
                             log("\tFound " + foundFiles.size() + " files in " + folder);
                             files.addAll(foundFiles);
                         }
+                        log("-----------------------------------");
 
+                        log("Done: found " + files.size() + " potential files to edit");
+
+                        for (File file : files)
+                        {
+                            log("\t " + file);
+                        }
+                        log("-----------------------------------");
                     }
                     else
                     {
@@ -61,7 +81,7 @@ public class Main
         }
         else
         {
-            throw new RuntimeException("Missing Folders to search. Add 'foldersToSearch=file,file2,file3' to your launch arguments, where file is your designed search folder.");
+            throw new RuntimeException("Missing Folders to search. Add 'foldersToSearch=file,file2,file3' to your launch arguments, where file is your desired search folder.");
         }
 
         log("Exiting");
@@ -81,11 +101,17 @@ public class Main
     {
         if (folder.exists() && folder.isDirectory())
         {
+            String spacer = "";
+            for (int i = 0; i <= depth; i++)
+            {
+                spacer += "\t";
+            }
+            log(spacer + "Looking at folder: " + folder);
             for (File file : folder.listFiles())
             {
-                if (file.isDirectory() && depth < maxSearchDepth)
+                if (file.isDirectory() && depth < maxSearchDepth && !foldersToIgnore.contains(file.getName()))
                 {
-                    findFiles(folder, files, name, depth + 1);
+                    findFiles(file, files, name, depth + 1);
                 }
                 else if (file.getName().equalsIgnoreCase(name))
                 {
