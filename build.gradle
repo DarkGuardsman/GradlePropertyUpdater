@@ -1,0 +1,89 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            name = "sonatype"
+            url = "https://oss.sonatype.org/content/repositories/snapshots/"
+        }
+    }
+    dependencies {
+      classpath 'org.ajoberstar:gradle-git:1.3.2'
+      classpath 'org.ajoberstar:grgit:1.4.1'
+    }
+}
+
+plugins {
+  id 'net.saliman.cobertura' version '2.2.5'
+  id 'com.github.kt3k.coveralls' version '2.0.1'
+  id "se.bjurr.gitchangelog.git-changelog-gradle-plugin" version "1.45"
+}
+
+//Applies the scala plugin
+apply plugin: 'scala'
+apply from: 'https://raw.githubusercontent.com/BuiltBrokenModding/BuiltBrokenScripts/buildScripts/index/index-nonmc.gradle'
+//apply from: 'https://raw.githubusercontent.com/BuiltBrokenModding/BuiltBrokenScripts/buildScripts/scripts/both/repos.gradle'
+apply plugin: 'com.github.kt3k.coveralls'
+apply plugin: 'jacoco'
+
+/*dependencies{
+    compile 'com.google.guava:guava:11.0.2'
+    compile 'org.scala-lang:scala-library:2.11.1'
+    compile "io.netty:netty-all:4.0.10.Final"
+    compile "org.apache.logging.log4j:log4j-core:2.0-beta9"
+    testCompile 'junit:junit:4.11'
+}*/
+
+import org.ajoberstar.grgit.*
+
+def gitHash = 'unknown'
+if (new File(projectDir, '.git').exists()) {
+    def repo = Grgit.open(project.file('.'))
+    gitHash = repo.log().find().abbreviatedId
+}
+
+def currentJvm = org.gradle.internal.jvm.Jvm.current()
+println "Current Java version = " + currentJvm
+
+jar {
+     manifest.mainAttributes(
+            "Built-By": System.getProperty('user.name'),
+            "Created-By": currentJvm,
+            "Implementation-Title": archivesBaseName,
+            "Implementation-Version": project.version,
+            "Git-Hash": gitHash,
+            "Main-Class": "main.java.com.builtbroken.updater.Main")
+}
+
+jacocoTestReport {
+    reports {
+        xml.enabled = true // coveralls plugin depends on xml format report
+        html.enabled = true
+    }
+}
+
+def getDate() {
+    def date = new Date()
+    def formattedDate = date.format('yyyyMMddHHmmss')
+    return formattedDate
+}
+
+task makeChangelog(type: se.bjurr.gitchangelog.plugin.gradle.GitChangelogTask) {
+    filePath = "changelog.html"
+    untaggedName = "Current release ${project.version}"
+    fromCommit = startGitRev
+    toRef =  "HEAD"
+    templateContent = """
+{{#tags}}
+<h1> Highly untested and may break world</h1>
+  <h3>{{name}}</h3>
+  <ul>
+    {{#commits}}
+    <li> <a href="https://github.com/DarkGuardsman/GradlePropertyUpdater/commit/{{hash}}" target=_blank> {{{message}}}</a>
+</li>
+    {{/commits}}
+  </ul>
+{{/tags}}
+"""
+}
+
+tasks.build.dependsOn makeChangelog
