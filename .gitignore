@@ -1,2 +1,8 @@
 
 *.iml
+.gradle/
+GradlePropertyUpdater.txt
+build/
+changelog.html
+gradle/
+output/
