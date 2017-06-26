@@ -76,7 +76,7 @@ public class Main
                         log("Done: modified " + editedFiles.size() + " files.");
                         log("-----------------------------------");
 
-                        if(launchSettings.containsKey("doGitCommit"))
+                        if (launchSettings.containsKey("doGitCommit"))
                         {
                             //TODO pull
                             //TODO create commits
@@ -307,6 +307,13 @@ public class Main
                         String[] split = next.split("=");
                         currentArg = split[0].substring(1).trim();
                         currentValue = split[1].trim();
+                        if (split.length > 2)
+                        {
+                            for (int l = 2; l < split.length; l++)
+                            {
+                                currentValue += "=" + split[l];
+                            }
+                        }
                     }
                     else
                     {
