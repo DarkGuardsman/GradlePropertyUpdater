@@ -53,7 +53,7 @@ jar {
             "Implementation-Title": archivesBaseName,
             "Implementation-Version": project.version,
             "Git-Hash": gitHash,
-            "Main-Class": "main.java.com.builtbroken.updater.Main")
+            "Main-Class": "com.builtbroken.updater.Main")
 }
 
 jacocoTestReport {
