@@ -44,6 +44,9 @@ public class Main
                         foldersToIgnore.add("build");
                         foldersToIgnore.add(".git");
                         foldersToIgnore.add(".gradle");
+                        foldersToIgnore.add("src");
+                        foldersToIgnore.add("output");
+                        foldersToIgnore.add("out");
 
                         List<File> files = new ArrayList();
 
@@ -78,10 +81,50 @@ public class Main
 
                         if (launchSettings.containsKey("doGitCommit"))
                         {
-                            //TODO pull
-                            //TODO create commits
-                            //TODO push commit
-                            //https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
+                            boolean push = launchSettings.containsKey("doGitPush");
+                            String message = launchSettings.get("gitCommitMessage");
+                            if (message == null)
+                            {
+                                message = "Updated file: %fileName%"; //TODO add line change notes
+                            }
+
+                            for (File file : editedFiles)
+                            {
+                                File gitFolder = new File(file.getParentFile(), ".git");
+                                if (gitFolder.exists())
+                                {
+                                    //https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
+
+                                    //git status
+                                    // parse output to see if our file exists and is marked as changed
+
+                                    //git add fileName
+                                    //git commit -m "Automation: Updated VoltzEngine version # to 1.7.0"
+                                    //git push
+                                    if (runProcess(file.getParentFile(), "git add " + file.getName()))
+                                    {
+                                        String m = message.replace("%fileName%", file.getName());
+                                        if (runProcess(file.getParentFile(), "git commit -m \"" + m + "\""))
+                                        {
+                                            if (push)
+                                            {
+                                                if (!runProcess(file.getParentFile(), "git push"))
+                                                {
+                                                    //TODO reset git branch to prevent issues
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            //TODO reset git branch to prevent issues
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    log("Error: File '" + file + "' is not contained in a folder with a .git to allow for syncing.");
+                                }
+                            }
                         }
                     }
                     else
@@ -105,6 +148,47 @@ public class Main
         }
 
         log("Exiting");
+    }
+
+    public static boolean runProcess(File run, String process)
+    {
+        try
+        {
+            log("Running command: " + process);
+            Process p = Runtime.getRuntime().exec(process, null, run);
+
+            BufferedReader stdInput = new BufferedReader(new
+                    InputStreamReader(p.getInputStream()));
+
+            BufferedReader stdError = new BufferedReader(new
+                    InputStreamReader(p.getErrorStream()));
+
+            String s = null;
+
+            // read the output from the command
+            log("-----------------------------------");
+            log("Output:\n");
+            while ((s = stdInput.readLine()) != null)
+            {
+                log(s);
+            }
+            log("-----------------------------------");
+
+            // read any errors from the attempted command
+            log("Error:\n");
+            while ((s = stdError.readLine()) != null)
+            {
+                log(s);
+            }
+            log("-----------------------------------");
+        }
+        catch (Exception e)
+        {
+            log("Failed to run command");
+            e.printStackTrace();
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -258,9 +342,10 @@ public class Main
         {
             //Write file
             FileWriter fw = new FileWriter(file);
-            for (String s : lines)
+            for (int i = 0; i < lines.size(); i++)
             {
-                fw.write(s + newLine);
+                String s = lines.get(i);
+                fw.write(s + ((i - 1) < lines.size() ? newLine : ""));
             }
             fw.flush();
             fw.close();
