@@ -134,40 +134,93 @@ public class Main
 
     public static void editFile(File file, String replace, String insert)
     {
-        List<String> lines = new ArrayList<String>();
-        String line = null;
         try
         {
             //Load file
-            FileReader fr = new FileReader(file);
-            BufferedReader br = new BufferedReader(fr);
-            while ((line = br.readLine()) != null)
+            List<String> lines = readFile(file);
+
+            //Replace lines
+            for (int i = 0; i < lines.size(); i++)
             {
-                //Check if should replace
-                if (line.contains(replace)) //TODO add regex support
+                final String line = lines.get(i);
+                if (line.contains(replace))
                 {
-                    //Replace
-                    line = insert;
+                    lines.set(i, insert);
                 }
-                lines.add(line);
             }
-            fr.close();
-            br.close();
 
             //Write file
-            FileWriter fw = new FileWriter(file);
-            BufferedWriter out = new BufferedWriter(fw);
-            for (String s : lines)
-            {
-                out.write(s);
-            }
-            out.flush();
-            out.close();
+            writeFile(file, lines);
         }
         catch (Exception ex)
         {
             ex.printStackTrace();
         }
+    }
+
+    /**
+     * Loads the file as a list of strings
+     *
+     * @param file
+     * @return
+     * @throws IOException
+     */
+    public static List<String> readFile(File file) throws IOException
+    {
+        final List<String> lines = new ArrayList<String>();
+
+
+        final FileReader fr = new FileReader(file);
+        final BufferedReader br = new BufferedReader(fr);
+
+        String line;
+        while ((line = br.readLine()) != null)
+        {
+            lines.add(line);
+        }
+
+        fr.close();
+        br.close();
+
+        return lines;
+    }
+
+    /**
+     * Writes a series of lines to a file
+     *
+     * @param file
+     * @param lines
+     * @throws IOException
+     */
+    public static void writeFile(File file, List<String> lines)
+    {
+        //Backup file in case of errors
+        File bak = new File(file.getPath(), file.getName() + "_bak");
+        if (file.exists())
+        {
+            file.renameTo(bak);
+        }
+
+        String newLine = System.getProperty("line.separator");
+        //Write to file
+        try
+        {
+            //Write file
+            FileWriter fw = new FileWriter(file);
+            for (String s : lines)
+            {
+                fw.write(s + newLine);
+            }
+            fw.flush();
+            fw.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+
+        //Remove temporary backup file
+        bak.delete();
     }
 
     /**
