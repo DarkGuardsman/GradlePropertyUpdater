@@ -63,6 +63,26 @@ public class Main
                             log("\t " + file);
                         }
                         log("-----------------------------------");
+
+                        log("Starting edits");
+                        List<File> editedFiles = new ArrayList();
+                        for (File file : files)
+                        {
+                            if (editFile(file, lineToReplace, lineToInsert))
+                            {
+                                editedFiles.add(file);
+                            }
+                        }
+                        log("Done: modified " + editedFiles.size() + " files.");
+                        log("-----------------------------------");
+
+                        if(launchSettings.containsKey("doGitCommit"))
+                        {
+                            //TODO pull
+                            //TODO create commits
+                            //TODO push commit
+                            //https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
+                        }
                     }
                     else
                     {
@@ -87,11 +107,23 @@ public class Main
         log("Exiting");
     }
 
+    /**
+     * Called to locate all files with the provided name
+     *
+     * @param path
+     * @param name
+     */
     public static List<File> findFiles(String path, String name)
     {
         return findFiles(new File(path), name);
     }
 
+    /**
+     * Called to locate all files with the provided name
+     *
+     * @param folder
+     * @param name
+     */
     public static List<File> findFiles(File folder, String name)
     {
         List<File> files = new ArrayList();
@@ -99,6 +131,14 @@ public class Main
         return files;
     }
 
+    /**
+     * Called to locate all files with the provided name
+     *
+     * @param folder
+     * @param files
+     * @param name
+     * @param depth
+     */
     public static void findFiles(File folder, List<File> files, String name, int depth)
     {
         if (folder.exists() && folder.isDirectory())
@@ -132,8 +172,16 @@ public class Main
         System.out.println("[GradlePropertyUpdater] " + msg);
     }
 
-    public static void editFile(File file, String replace, String insert)
+    /**
+     * Called to edit a file to replace the given line
+     *
+     * @param file
+     * @param replace
+     * @param insert
+     */
+    public static boolean editFile(File file, String replace, String insert)
     {
+        boolean edited = false;
         try
         {
             //Load file
@@ -146,6 +194,8 @@ public class Main
                 if (line.contains(replace))
                 {
                     lines.set(i, insert);
+                    log("Replacing line in file: " + file);
+                    edited = true;
                 }
             }
 
@@ -156,6 +206,7 @@ public class Main
         {
             ex.printStackTrace();
         }
+        return edited;
     }
 
     /**
