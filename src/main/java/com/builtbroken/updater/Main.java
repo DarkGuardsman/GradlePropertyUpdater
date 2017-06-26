@@ -1,6 +1,6 @@
-package main.java.com.builtbroken.updater;
+package com.builtbroken.updater;
 
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -89,11 +89,13 @@ public class Main
 
     public static List<File> findFiles(String path, String name)
     {
+        return findFiles(new File(path), name);
+    }
+
+    public static List<File> findFiles(File folder, String name)
+    {
         List<File> files = new ArrayList();
-
-        File folder = new File(path);
         findFiles(folder, files, name, 0);
-
         return files;
     }
 
@@ -119,11 +121,53 @@ public class Main
                 }
             }
         }
+        else
+        {
+            log("Error: folder '" + folder + "' does not exist or is not a directory valid for searching.");
+        }
     }
 
     public static void log(String msg)
     {
         System.out.println("[GradlePropertyUpdater] " + msg);
+    }
+
+    public static void editFile(File file, String replace, String insert)
+    {
+        List<String> lines = new ArrayList<String>();
+        String line = null;
+        try
+        {
+            //Load file
+            FileReader fr = new FileReader(file);
+            BufferedReader br = new BufferedReader(fr);
+            while ((line = br.readLine()) != null)
+            {
+                //Check if should replace
+                if (line.contains(replace)) //TODO add regex support
+                {
+                    //Replace
+                    line = insert;
+                }
+                lines.add(line);
+            }
+            fr.close();
+            br.close();
+
+            //Write file
+            FileWriter fw = new FileWriter(file);
+            BufferedWriter out = new BufferedWriter(fw);
+            for (String s : lines)
+            {
+                out.write(s);
+            }
+            out.flush();
+            out.close();
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+        }
     }
 
     /**
