@@ -30,6 +30,8 @@ dependencies{
     compile 'org.scala-lang:scala-library:2.11.1'
     compile "io.netty:netty-all:4.0.10.Final"
     compile "org.apache.logging.log4j:log4j-core:2.0-beta9"
+    // https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
+    compile group: 'org.eclipse.jgit', name: 'org.eclipse.jgit', version: '4.8.0.201706111038-r'
     testCompile 'junit:junit:4.11'
 }
 
