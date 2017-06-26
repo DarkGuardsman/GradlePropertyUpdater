@@ -25,13 +25,13 @@ apply from: 'https://raw.githubusercontent.com/BuiltBrokenModding/BuiltBrokenScr
 apply plugin: 'com.github.kt3k.coveralls'
 apply plugin: 'jacoco'
 
-/*dependencies{
+dependencies{
     compile 'com.google.guava:guava:11.0.2'
     compile 'org.scala-lang:scala-library:2.11.1'
     compile "io.netty:netty-all:4.0.10.Final"
     compile "org.apache.logging.log4j:log4j-core:2.0-beta9"
     testCompile 'junit:junit:4.11'
-}*/
+}
 
 import org.ajoberstar.grgit.*
 
