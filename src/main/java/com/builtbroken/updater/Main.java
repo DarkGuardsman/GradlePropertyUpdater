@@ -4,6 +4,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @see <a href="https://github.com/BuiltBrokenModding/VoltzEngine/blob/development/license.md">License</a> for what you can and can't do with the code.
@@ -11,6 +12,7 @@ import java.util.List;
  */
 public class Main
 {
+    public static final String DEFAULT_COMMIT_MESSAGE = "Updated line '%lineToReplace%' to '%lineToInsert%' in file '%fileName%'";
     public static int maxSearchDepth = 10;
     public static List<String> foldersToIgnore = new ArrayList();
 
@@ -18,7 +20,183 @@ public class Main
     {
         log("Starting");
 
-        HashMap<String, String> launchSettings = loadArgs(args);
+        //Collect arguments
+        final HashMap<String, String> launchSettings = loadArgs(args);
+
+        //Validate arguments to ensure we have minimal data needed
+        if (argumentsContainData(launchSettings))
+        {
+            String[] folderPaths = launchSettings.get("foldersToSearch").split(",");
+            String lineToReplace = launchSettings.get("lineToReplace");
+            String lineToInsert = launchSettings.get("lineToInsert");
+            String fileToEdit = launchSettings.get("fileToEdit");
+
+            //Used to inject data into strings to reduce work required to update run arguments
+            final HashMap<String, String> injectionKeys = loadArgs(args);
+
+
+            //Get injection keys
+            for (Map.Entry<String, String> entry : launchSettings.entrySet())
+            {
+                if (entry.getKey().startsWith("key@"))
+                {
+                    injectionKeys.put(entry.getKey().substring(4, entry.getKey().length()), entry.getValue());
+                }
+            }
+
+            //Update data to use injection keys
+            lineToReplace = injectDataIntoString(lineToReplace, injectionKeys);
+            lineToInsert = injectDataIntoString(lineToInsert, injectionKeys);
+            fileToEdit = injectDataIntoString(fileToEdit, injectionKeys);
+
+            //Add defaults to injection list
+            injectionKeys.put("lineToReplace", lineToReplace);
+            injectionKeys.put("lineToInsert", lineToInsert);
+            injectionKeys.put("fileToEdit", fileToEdit);
+
+            log("-----------------------------------");
+            log("Args: ");
+            log("\tFolders: " + folderPaths.length);
+            log("\tFile: " + fileToEdit);
+            log("\tReplace: " + lineToReplace);
+            log("\tInsert: " + lineToInsert);
+            log("-----------------------------------");
+
+            //TODO add args to add more folders to list
+            foldersToIgnore.add("build");
+            foldersToIgnore.add(".git");
+            foldersToIgnore.add(".gradle");
+            foldersToIgnore.add("src");
+            foldersToIgnore.add("output");
+            foldersToIgnore.add("out");
+
+
+            //Search for files
+            List<File> files = new ArrayList();
+            log("Starting search");
+            for (String folder : folderPaths)
+            {
+                List<File> foundFiles = findFiles(folder, fileToEdit);
+                log("\tFound " + foundFiles.size() + " files in " + folder);
+                files.addAll(foundFiles);
+            }
+            log("-----------------------------------");
+
+            //Add files found to log
+            log("Done: found " + files.size() + " potential files to edit");
+            for (File file : files)
+            {
+                log("\t " + file);
+            }
+            log("-----------------------------------");
+
+            //Edit files
+            log("Starting edits");
+            List<File> editedFiles = new ArrayList();
+            for (File file : files)
+            {
+                if (editFile(file, lineToReplace, lineToInsert))
+                {
+                    editedFiles.add(file);
+                }
+            }
+            log("Done: modified " + editedFiles.size() + " files.");
+            log("-----------------------------------");
+
+            //Sync edits to git
+            if (launchSettings.containsKey("doGitCommit"))
+            {
+                boolean push = launchSettings.containsKey("doGitPush");
+
+                //Get commit message
+                String gitCommitMessage = launchSettings.get("gitCommitMessage");
+                if (gitCommitMessage == null)
+                {
+                    gitCommitMessage = DEFAULT_COMMIT_MESSAGE;
+                }
+
+                //Inject data into commit message
+                if (gitCommitMessage.contains("%"))
+                {
+                    gitCommitMessage = injectDataIntoString(gitCommitMessage, injectionKeys);
+                }
+
+                //Cycle through edits
+                for (File file : editedFiles)
+                {
+                    final File gitFolder = new File(file.getParentFile(), ".git");
+                    if (gitFolder.exists())
+                    {
+                        //https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
+
+                        //TODO git status
+                        // parse output to see if our file exists and is marked as changed
+
+                        //git add fileName
+                        //git commit -m "Automation: Updated VoltzEngine version # to 1.7.0"
+                        //git push
+
+                        //Add file to be committed TODO log output
+                        if (runProcess(file.getParentFile(), "git add " + file.getName()))
+                        {
+                            //Inject file name into message
+                            String actualCommitMessage = injectIntoString(gitCommitMessage, "fileName", file.getName());
+
+                            //Run commit TODO log output
+                            if (runProcess(file.getParentFile(), "git commit -m \"" + actualCommitMessage + "\""))
+                            {
+                                if (push)
+                                {
+                                    //Push commit to remote TODO log output
+                                    if (!runProcess(file.getParentFile(), "git push"))
+                                    {
+                                        //TODO reset git branch to prevent issues
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                //TODO reset git branch to prevent issues
+                            }
+                        }
+                    }
+                    else
+                    {
+                        log("Error: File '" + file + "' is not contained in a folder with a .git to allow for syncing.");
+                    }
+                }
+            }
+        }
+
+        log("Exiting");
+    }
+
+    public static String injectDataIntoString(String string, HashMap<String, String> keysToValues)
+    {
+        String edit = string;
+
+        for (Map.Entry<String, String> entry : keysToValues.entrySet())
+        {
+            edit = injectIntoString(edit, entry.getKey(), entry.getValue());
+        }
+
+        return edit;
+    }
+
+    public static String injectIntoString(String string, String key, String value)
+    {
+        final String target = "%" + key + "%";
+        return string.replace(target, value);
+    }
+
+    /**
+     * Validates minimal program arguments required in order to function
+     *
+     * @param launchSettings - program arguments pass in on launch
+     * @return true if everything is good
+     */
+    public static boolean argumentsContainData(HashMap<String, String> launchSettings)
+    {
         if (launchSettings.containsKey("foldersToSearch"))
         {
             if (launchSettings.containsKey("lineToReplace"))
@@ -27,105 +205,7 @@ public class Main
                 {
                     if (launchSettings.containsKey("fileToEdit"))
                     {
-                        String[] folderPaths = launchSettings.get("foldersToSearch").split(",");
-                        String lineToReplace = launchSettings.get("lineToReplace");
-                        String lineToInsert = launchSettings.get("lineToInsert");
-                        String fileToEdit = launchSettings.get("fileToEdit");
-
-                        log("-----------------------------------");
-                        log("Args: ");
-                        log("\tFolders: " + folderPaths.length);
-                        log("\tFile: " + fileToEdit);
-                        log("\tReplace: " + lineToReplace);
-                        log("\tInsert: " + lineToInsert);
-                        log("-----------------------------------");
-
-                        //TODO add args to add more folders to list
-                        foldersToIgnore.add("build");
-                        foldersToIgnore.add(".git");
-                        foldersToIgnore.add(".gradle");
-                        foldersToIgnore.add("src");
-                        foldersToIgnore.add("output");
-                        foldersToIgnore.add("out");
-
-                        List<File> files = new ArrayList();
-
-                        log("Starting search");
-                        for (String folder : folderPaths)
-                        {
-                            List<File> foundFiles = findFiles(folder, fileToEdit);
-                            log("\tFound " + foundFiles.size() + " files in " + folder);
-                            files.addAll(foundFiles);
-                        }
-                        log("-----------------------------------");
-
-                        log("Done: found " + files.size() + " potential files to edit");
-
-                        for (File file : files)
-                        {
-                            log("\t " + file);
-                        }
-                        log("-----------------------------------");
-
-                        log("Starting edits");
-                        List<File> editedFiles = new ArrayList();
-                        for (File file : files)
-                        {
-                            if (editFile(file, lineToReplace, lineToInsert))
-                            {
-                                editedFiles.add(file);
-                            }
-                        }
-                        log("Done: modified " + editedFiles.size() + " files.");
-                        log("-----------------------------------");
-
-                        if (launchSettings.containsKey("doGitCommit"))
-                        {
-                            boolean push = launchSettings.containsKey("doGitPush");
-                            String message = launchSettings.get("gitCommitMessage");
-                            if (message == null)
-                            {
-                                message = "Updated file: %fileName%"; //TODO add line change notes
-                            }
-
-                            for (File file : editedFiles)
-                            {
-                                File gitFolder = new File(file.getParentFile(), ".git");
-                                if (gitFolder.exists())
-                                {
-                                    //https://git-scm.com/book/be/v2/Embedding-Git-in-your-Applications-JGit
-
-                                    //git status
-                                    // parse output to see if our file exists and is marked as changed
-
-                                    //git add fileName
-                                    //git commit -m "Automation: Updated VoltzEngine version # to 1.7.0"
-                                    //git push
-                                    if (runProcess(file.getParentFile(), "git add " + file.getName()))
-                                    {
-                                        String m = message.replace("%fileName%", file.getName());
-                                        if (runProcess(file.getParentFile(), "git commit -m \"" + m + "\""))
-                                        {
-                                            if (push)
-                                            {
-                                                if (!runProcess(file.getParentFile(), "git push"))
-                                                {
-                                                    //TODO reset git branch to prevent issues
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            //TODO reset git branch to prevent issues
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    log("Error: File '" + file + "' is not contained in a folder with a .git to allow for syncing.");
-                                }
-                            }
-                        }
+                        return true;
                     }
                     else
                     {
@@ -146,10 +226,17 @@ public class Main
         {
             throw new RuntimeException("Missing Folders to search. Add 'foldersToSearch=file,file2,file3' to your launch arguments, where file is your desired search folder.");
         }
-
-        log("Exiting");
     }
 
+    /**
+     * Called to run a process outside of the program
+     * <p>
+     * Used for git commands
+     *
+     * @param run
+     * @param process
+     * @return
+     */
     public static boolean runProcess(File run, String process)
     {
         try
